@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract ERC20Staking {
    
 
-    IERC20 public stakingToken;
+   address public stakingToken;
     mapping(address => Stake) public userStake;
 
     struct Stake {
@@ -16,7 +16,7 @@ contract ERC20Staking {
         bool isStake;
     }
 
-    constructor(IERC20 _stakingToken) {
+    constructor(address _stakingToken) {
         stakingToken = _stakingToken;
     }
 
@@ -58,10 +58,5 @@ contract ERC20Staking {
         return calculateReward(msg.sender);
     }
 
-    function extendStakeDuration(uint _newDuration) external {
-        Stake memory stake = userStake[msg.sender];
-        require(stake.isStake, "No active stake");
-        uint newStakeDuration = stake.stakeDuration + _newDuration * 30 days;
-        userStake[msg.sender].stakeDuration = newStakeDuration;
-    }
+  
 }
