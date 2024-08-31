@@ -1,47 +1,67 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+contract ERC20Staking {
+   
 
- contract StakeERC20{ 
+    IERC20 public stakingToken;
+    mapping(address => Stake) public userStake;
 
-address owner;
-address tokenAddress;
-
-constructor(address _tokenAddress){
-  owner = msg.sender;
-  tokenAddress = _tokenAddress;
-}
-
-mapping(address => User) userStaking;
-
-    struct User {
-        address userAddress;
-        uint timeStart;
-        uint duration;
-        uint ERC20Staked;
-        uint rewardsEarned;
+    struct Stake {
+        uint stakingAmount;
+        uint stakeDuration;
+        uint stakingtimeStart;
+        bool isStake;
     }
 
-    function addStake(uint _stakedAmount, uint duration)external{
-      require(msg.sender != address(0), "address zero detected");
-      uint _userbalance = IERC20(tokenAddress).balanceOf(msg.sender);
-
-      require(_userbalance >= _stakedAmount,"You dont have enough token to stake" );
-
-      IERC20(tokenAddress).transferFrom(msg.sender, address(this), _stakedAmount);
-       balances[msg.sender] += _amount;
-
-
+    constructor(IERC20 _stakingToken) {
+        stakingToken = _stakingToken;
     }
 
-    function CheckReward() external {}
+    function userStakeDeposit(uint _stakingAmount, uint _stakeDuration) external {
+        require(msg.sender != address(0), "Zero address detected");
+        require(_stakingAmount > 0, "Can't deposit zero");
+        uint256 _userTokenBalance = stakingToken.balanceOf(msg.sender);
+        require(_userTokenBalance >= _stakingAmount, "Insufficient balance");
+        Stake memory _staker = userStake[msg.sender];
+        require(!_staker.isStake, "User already staked");
+        uint _stakingtimeStart = block.timestamp;
+        uint _stakeDurationPeriod = _stakeDuration * 30 days;
+        stakingToken.safeTransferFrom(msg.sender, address(this), _stakingAmount);
+        userStake[msg.sender] = Stake(_stakingAmount, _stakeDurationPeriod, _stakingtimeStart, true);
+    }
 
-    function checkEndTime() external {}
+    function calculateReward(address _staker) public view returns (uint) {
+        Stake memory stake = userStake[_staker];
+        require(stake.isStake, "No active stake");
+        if (block.timestamp >= stake.stakingtimeStart + stake.stakeDuration) {
+            uint reward = (stake.stakingAmount * 20) / 100;
+            return stake.stakingAmount + reward;
+        } else {
+            return stake.stakingAmount;
+        }
+    }
 
-    function withdraw() external{
-      
-      
+    function withdrawStake() external  {
+        Stake memory stake = userStake[msg.sender];
+        require(stake.isStake, "No active stake");
+        require(block.timestamp >= stake.stakingtimeStart + stake.stakeDuration, "Staking period not yet over");
+        uint reward = (stake.stakingAmount * 20) / 100;
+        uint totalAmount = stake.stakingAmount + reward;
+        delete userStake[msg.sender];
+        stakingToken.safeTransfer(msg.sender, totalAmount);
+    }
+
+    function checkBalance() external view returns (uint) {
+        return calculateReward(msg.sender);
+    }
+
+    function extendStakeDuration(uint _newDuration) external {
+        Stake memory stake = userStake[msg.sender];
+        require(stake.isStake, "No active stake");
+        uint newStakeDuration = stake.stakeDuration + _newDuration * 30 days;
+        userStake[msg.sender].stakeDuration = newStakeDuration;
     }
 }
